@@ -118,6 +118,21 @@ io.on('connection', function (socket) {
         socket.worker.send({order: 'get_member_list', data: res});
 
     });
+    // 爬取贴吧热点话题
+    socket.on('get_tieba_topic', function (res) {
+        if (socket.worker && socket.worker.killed == false) {
+            socket.emit('warning', '该页面有一个子进程正在运行,请开启另一个网页进行爬取');
+            return;
+        }
+        // 将子进程放入socket对象 到达一网页一子进程的效果 实现多网页多子进程爬取
+        socket.worker = cp.fork('./server/cp.js');
+        // 开启监听
+        worker_on();
+        worker_sum++;
+        worker_status();
+        socket.worker.send({order: 'get_tieba_topic', data: res});
+
+    });
 
     //请求停止
     socket.on('close', function (res) {

@@ -22,6 +22,7 @@ let TiebaSchema = new Schema({
     follow_sum: Number,
     topic_sum : Number,
     post_sum  : Number,
+    topiclist : Array,
     head_img  : String
 });
 

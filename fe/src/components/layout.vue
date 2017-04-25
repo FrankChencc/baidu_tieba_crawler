@@ -1,14 +1,15 @@
 <template>
     <div class="">
         <div class="menu">
-            <el-menu router theme="dark" default-active="1" class="el-menu-demo ui container" mode="horizontal"
-                     @select="handleSelect">
+            <el-menu router theme="dark" default-active="1" class="el-menu-demo ui container" mode="horizontal" @select="handleSelect">
                 <el-menu-item index="/index">主页</el-menu-item>
-
-                <el-menu-item index="/analysis">数据分析</el-menu-item>
-
+                <el-submenu index="/analysis">
+                    <template slot="title">数据分析</template>
+                    <el-menu-item index="/analysis/index">热门话题</el-menu-item>
+                    <el-menu-item index="/analysis/list">典型意见</el-menu-item>
+                </el-submenu>
                 <el-menu-item index=""><a target="_blank"
-                                          href="https://github.com/tyaqing/baidu_tieba_crawler">Github</a>
+                                          href="https://github.com/FrankChencc/baidu_tieba_crawler">Github</a>
                 </el-menu-item>
             </el-menu>
         </div>

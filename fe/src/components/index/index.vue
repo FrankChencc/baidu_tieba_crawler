@@ -1,36 +1,28 @@
 <template>
     <div class="mt-20">
-
-        <el-card v-loading.body="loading"
-                 element-loading-text="正在爬取贴吧基本信息"
-        >
+        <el-card v-loading.body="loading" element-loading-text="正在爬取贴吧基本信息">
             <div slot="header" class="clearfix">
                 <span style="line-height: 36px;">创建目标贴吧</span>
-                <br><br>
-                <el-breadcrumb separator="/">
+                <el-breadcrumb separator=">">
                     <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
                 </el-breadcrumb>
             </div>
-
-
-            <el-form :model="form" label-width="80px">
+            <el-form :inline="true" :model="formInline" ref="formInline" label-width="80px">
                 <el-form-item label="贴吧名称">
                     <el-input @keyup.enter="onSubmit" v-model="form.name"> </el-input>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="onSubmit">立即创建</el-button>
+                    <el-button @click="resetForm('formInline')">重置</el-button>
                 </el-form-item>
             </el-form>
-
-            <small style="font-size:16px">服务器太渣，各位请移步本地调试，目前存在一些bug正在研究当中</small>
         </el-card>
-
         <el-row :gutter="20">
             <el-col :span="12" v-for="item in card">
                 <div class="mt-8 box pd-10 clearfix" :body-style="{ padding: '10px'}">
                     <img class="left" :src="item.head_img">
                     <article style="margin-left:130px">
-                        <div class="f-20 c-1">{{item.kw.toUpperCase()}}</div>
+                        <div class="f-18 c-1">{{item.kw.toUpperCase()}}</div>
                         <div class="c-green f-16 mt-10"><i class="el-icon-delete"> </i>关注 : {{item.follow_sum}}</div>
                         <div class="c-green f-16 mt-10"><i class="el-icon-delete"> </i>帖子 : {{item.post_sum}}</div>
                         <br>
@@ -41,11 +33,7 @@
                 </div>
             </el-col>
         </el-row>
-
-
-        <br><br><br>
     </div>
-
 </template>
 
 <script type="javascript">
@@ -83,12 +71,12 @@
                             this.card.unshift(res.body)
                             this.loading = false;
                         })
+            },
+            resetForm(formName){
+                this.$refs[formName].resetFields();
             }
-        },
-
-
+        }
     }
-
 </script>
 
 <style lang="less" scoped>

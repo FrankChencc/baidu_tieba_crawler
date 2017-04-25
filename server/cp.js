@@ -13,8 +13,14 @@ let db         = require('../model/model');
 let pn              = 0; //贴吧帖子列表数量
 let pn_sum          = 0; //贴吧列表总数
 let kw;
+let API_TOKEN = 'MzPbzD9r.13011.YIGIgzrR25xJ';
+let analysisLimit = 50;
 let base_url        = `http://tieba.baidu.com/f?kw=${encodeURI(kw)}&pn=${pn}`;
 let member_list_url = `http://tieba.baidu.com/bawu2/platform/listMemberInfo?word=${encodeURI(kw)}&pn=${pn}`;
+let topic_push_url = `http://api.bosonnlp.com/cluster/push/`;
+let topic_analysis_url = `http://api.bosonnlp.com/cluster/analysis/`;
+let topic_status_url = `http://api.bosonnlp.com/cluster/status/`;
+let topic_result_url = `http://api.bosonnlp.com/cluster/result/`;
 
 
 // this will add request.Request.prototype.charset
@@ -42,10 +48,30 @@ process.on('message', (m) => {
         exports.get_list(m.data);
         process.send({type: 'msg', data: '开始爬取'});
     }
+    if (m.order == 'get_tieba_topic') {
+        process.send({type: 'msg', data: '开始分析'});
+        let uploadTexts = [];
+        let TASK_ID;
+        // 获取贴贴吧的
+        db.Post.find({kw: m.data})
+            .sort({last_update: 'asc'})   
+            .limit(analysisLimit)
+            .exec(function (err, docs) {
+                docs.forEach(function(item, index){
+                    uploadTexts.push({
+                        '_id'       : item._id,
+                        'text'      : item.title,
+                        'kw'        : item.kw
+                    })
+                    TASK_ID = item._id + 'limit' + analysisLimit;
+                });
+                process.send({type: 'msg', data: uploadTexts});
+                get_tieba_topic(uploadTexts, TASK_ID, m.data);
+            });
+        
+    }
     if (m.order == 'get_tieba_content') {
-        // 获取该死的fid
-        // 因为这个项目开始的时候评论是放在js里面的，做着做着百度通过ajax加载评论了
-        // 坑爹
+        // 获取贴吧的fid
         db.Post.findOne({_id: m.data}, function (err, _res) {
             if (err) return console.log(err);
             let kw = _res.kw;
@@ -69,8 +95,6 @@ process.on('message', (m) => {
                 get_member_list(member_list_url);
             });
         });
-
-
         // process.send({type: 'msg', data: '开始爬取'});
     }
 });
@@ -441,8 +465,107 @@ function get_member_info(member, cb) {
         });
 }
 
+// 获取热点话题
+function get_tieba_topic(text, task_id, kw) {
+    //  上传文件到服务器;
+    let postUrl = topic_push_url + task_id;
+    process.send({type: 'msg', data: postUrl});
+    superagent.post(postUrl)
+        .timeout(3000)
+        .set('Accept', 'application/json')
+        .set('Content-Type', 'application/json')
+        .set('X-Token', API_TOKEN)
+        .send(text)
+        .end(function (err, res) {
+            process.send({type: 'msg', data: res});
+            //  开始执行分析程序;
+            let analysisUrl = topic_analysis_url + task_id;
+            superagent.get(analysisUrl)
+                .set('Accept', 'application/json')
+                .set('X-Token', API_TOKEN)
+                .end(function (err, res) {
+                        process.send({type: 'msg', data: res});
+                        let statusUrl = topic_status_url + task_id;
+                        let resultUrl = topic_result_url + task_id;
+                        // 调用查看状态的API来查看任务处理进度，这里每隔一段时间查询一次,状态为成功则调用聚类结果API
+                        let result = get_topic_result(statusUrl, resultUrl, kw);
+                        process.send({type: 'msg', data: result});
+                });
+            
+        });
+}
 
-// 这里希望有大神能帮我下，关于js 怎么 gbk编码encode
+function get_topic_result(statusUrl, resultUrl, _kw) {
+        let docs = [];
+        let analysisResult = [];
+        // 调用查看状态的API来查看任务处理进度
+        superagent.get(statusUrl)
+                .set('Accept', 'application/json')
+                .set('X-Token', API_TOKEN)
+                .end(function (err, res) {
+                    process.send({type: 'msg', data: res});
+                    let req = JSON.parse(res.text);
+                    let status = req.status;
+                    process.send({type: 'msg', data: status});
+                    if (status === 'DONE'){
+                        superagent.get(resultUrl)
+                            .set('Accept', 'application/json')
+                            .set('X-Token', API_TOKEN)
+                            .end(function (err, res) {
+                                process.send({type: 'msg', data: '分析成功'});
+                                process.send({type: 'msg', data: res});
+                                let reqId = JSON.parse(res.text);
+                                reqId.forEach(function(item, index){
+                                        process.send({type: 'msg', data: item});
+                                        item.list.forEach(function (element, idx) {
+                                            let i = idToText(element);
+                                            docs.push(i);
+                                        });
+                                        let topic = idToText(item._id);
+                                        analysisResult.push({
+                                            'topic'    : topic,
+                                            'docs'     : docs
+                                        })
+                                });
+                                //保存更新热点话题
+                                db.Tieba.findOneAndUpdate({kw: _kw}, {$set: {topiclist: analysisResult}}, function (err, docs) {
+                                    // console.log(err,docs);
+                                    if (err) return console.log(err);
+                                    process.send({type: 'get_content', data: '爬取成功'});
+                                    // process.send({type: 'close', data: 'close'});
+                                })
+                                
+                            });
+                    } else if (status === 'ERROR'){
+                        process.send({type: 'msg', data: '分析过程失败'});
+                        return false;
+                    } else if (status === 'NOT FOUND') {
+                        process.send({type: 'msg', data: '未找到任何数据'});
+                        return false;
+                    } else {
+                        return setTimeout(function(){
+                            get_topic_result(statusUrl, resultUrl);
+                        }, 2000);
+                    }
+                });
+}
+function idToText(id){
+    // db.Post.findOne({_id: id}, function (err, _res) {
+    //         if (err) return console.log(err);
+    //         text = _res.title;
+    //         process.send({type: 'msg', data: 'id=' + id + '对应的title=' + text});
+    //     });
+    // let doc = waitData(text);
+    let title = '';
+    db.Post.findOne({_id: id}).exec().then(function(res){
+        title = res.title;
+        process.send({type: 'msg', data: 'id=' + id + '对应的title=' + text});
+    }).catch(function(err){
+        process.send({type: 'msg', data: 'err=' + err});
+    });
+    process.send({type: 'msg', data: 'title=' + title});
+    return title;
+}
 function gbk_encode(str,cb){
     /*    php源码
      header('Content-Type: application/json');
@@ -456,4 +579,3 @@ function gbk_encode(str,cb){
             cb(res.body.str);
         });
 }
-

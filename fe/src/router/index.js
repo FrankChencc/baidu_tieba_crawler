@@ -21,7 +21,10 @@ export default{
         {
             path:'/analysis',component:require('components/layout'),
             children:[
-                {path:'',component: lazyLoading('analysis/index')},
+                {path:'index',component: lazyLoading('analysis/index')},
+                {path:'topic',component: lazyLoading('analysis/topic')},
+                {path:'comment',component: lazyLoading('analysis/comment')},
+                {path:'list',component: lazyLoading('analysis/list')}
             ]
         },
         {path: '*', component: lazyLoading('public/error404')}

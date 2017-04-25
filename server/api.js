@@ -50,7 +50,7 @@ module.exports = function (app) {
     app.get('/p', function (req, res) {
         let limit = req.query.limit || 24;
         let skip  = req.query.skip || 0;
-        let kw    = decodeURI(req.query.kw) || '湖南工学院';
+        let kw    = decodeURI(req.query.kw) || '电子科技大学';
 
         let count;
         console.log(kw);
@@ -67,7 +67,6 @@ module.exports = function (app) {
 
     });
     //获取单个帖子内容
-    //TODO
     app.get('/p/:id', function (req, res) {
         let id = req.params.id;
         if (id == null) {

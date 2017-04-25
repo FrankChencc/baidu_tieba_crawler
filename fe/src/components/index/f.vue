@@ -13,9 +13,10 @@
             </div>
             <el-button @click="start">开始爬取</el-button>
             <el-button @click="close">停止爬取</el-button>
-            <router-link class="right"  :to="{ path: '/index/listMember', query: { kw: this.$route.query.kw }}">
+            <router-link  :to="{ path: '/index/listMember', query: { kw: this.$route.query.kw }}">
                 <el-button type="primary" >会员列表</el-button>
             </router-link>
+            <el-button @click="topic" type="primary">热点话题</el-button>
             <br><br>
             <el-card v-show="process_start">
                 <el-row>
@@ -27,33 +28,17 @@
                 </el-row>
             </el-card>
             <br><br>
-            <el-table
-                    :data="tableData"
-                    stripe
-                    style="width: 100%">
-                <el-table-column
-                        prop="title"
-                        label="帖子"
-                        >
-                </el-table-column>
-                <el-table-column
-                        prop="user_name"
-                        width="150"
-                        label="发帖人"
-                        >
-                </el-table-column>
-                <el-table-column
-                        inline-template
-                        :context="_self"
-                        label="操作"
-                        width="70"
-                        >
-                      <span>
-                       <router-link target="_blank" :to="{path:'p/:id',name:'p',params:{id:row._id},query: { kw:kw}}"> <el-button type="text" size="small">详情</el-button></router-link>
-                      </span>
+            <el-table :data="tableData" stripe style="width: 100%">
+                <el-table-column prop="title" label="帖子"></el-table-column>
+                <el-table-column prop="user_name" width="150" label="发帖人"></el-table-column>
+                <el-table-column inline-template :context="_self" label="操作" width="70">
+                    <span>
+                        <router-link target="_blank" :to="{path:'p/:id',name:'p',params:{id:row._id},query: { kw:kw}}"> 
+                            <el-button type="text" size="small">详情</el-button>
+                        </router-link>
+                    </span>
                 </el-table-column>
             </el-table>
-
             <div class="block t-center mt-20">
                 <el-pagination
                         @size-change="handleSizeChange"
@@ -145,8 +130,18 @@
             start(){
                 // 爬贴内内容
                 this.process_start = true;
-                console.log(this.kw)
+                console.log(this.kw);
                 this.$socket.emit('get_tieba_list',this.kw);
+            },
+            topic(){
+                // 获取热点话题
+                console.log(this.tableData.length);
+                if (this.tableData.length != 0) {
+                    console.log(this.kw);
+                    this.$socket.emit('get_tieba_topic',this.kw);
+                } else {
+                    this.$message('请先爬取帖子');
+                }
             },
             close(){
                 this.process_start = false;
