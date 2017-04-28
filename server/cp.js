@@ -9,7 +9,7 @@ let charset    = require('superagent-charset');
 let cheerio    = require('cheerio');
 let url        = require('url');
 let db         = require('../model/model');
-
+let mongoose = require('mongoose');
 let pn              = 0; //贴吧帖子列表数量
 let pn_sum          = 0; //贴吧列表总数
 let kw;
@@ -488,14 +488,14 @@ function get_tieba_topic(text, task_id, kw) {
                         let statusUrl = topic_status_url + task_id;
                         let resultUrl = topic_result_url + task_id;
                         // 调用查看状态的API来查看任务处理进度，这里每隔一段时间查询一次,状态为成功则调用聚类结果API
-                        let result = get_topic_result(statusUrl, resultUrl, kw);
+                        let result = get_topic_result(statusUrl, resultUrl, kw, text);
                         process.send({type: 'msg', data: result});
                 });
             
         });
 }
 
-function get_topic_result(statusUrl, resultUrl, _kw) {
+function get_topic_result(statusUrl, resultUrl, _kw, uploadTexts) {
         let docs = [];
         let analysisResult = [];
         // 调用查看状态的API来查看任务处理进度
@@ -518,15 +518,18 @@ function get_topic_result(statusUrl, resultUrl, _kw) {
                                 reqId.forEach(function(item, index){
                                         process.send({type: 'msg', data: item});
                                         item.list.forEach(function (element, idx) {
-                                            let i = idToText(element);
+                                            let i = idToText(element, uploadTexts);
                                             docs.push(i);
                                         });
-                                        let topic = idToText(item._id);
+                                        process.send({type: 'msg', data: docs});
+                                        let topic = idToText(item._id, uploadTexts);
+                                        process.send({type: 'msg', data: topic});
                                         analysisResult.push({
                                             'topic'    : topic,
                                             'docs'     : docs
                                         })
                                 });
+                                process.send({type: 'msg', data: analysisResult});
                                 //保存更新热点话题
                                 db.Tieba.findOneAndUpdate({kw: _kw}, {$set: {topiclist: analysisResult}}, function (err, docs) {
                                     // console.log(err,docs);
@@ -534,7 +537,6 @@ function get_topic_result(statusUrl, resultUrl, _kw) {
                                     process.send({type: 'get_content', data: '爬取成功'});
                                     // process.send({type: 'close', data: 'close'});
                                 })
-                                
                             });
                     } else if (status === 'ERROR'){
                         process.send({type: 'msg', data: '分析过程失败'});
@@ -544,26 +546,26 @@ function get_topic_result(statusUrl, resultUrl, _kw) {
                         return false;
                     } else {
                         return setTimeout(function(){
-                            get_topic_result(statusUrl, resultUrl);
+                            get_topic_result(statusUrl, resultUrl, _kw, uploadTexts);
                         }, 2000);
                     }
                 });
 }
-function idToText(id){
+function idToText(id, text){
     // db.Post.findOne({_id: id}, function (err, _res) {
     //         if (err) return console.log(err);
     //         text = _res.title;
     //         process.send({type: 'msg', data: 'id=' + id + '对应的title=' + text});
     //     });
     // let doc = waitData(text);
+    // return db.Post.findOne({_id: id}).exec();
     let title = '';
-    db.Post.findOne({_id: id}).exec().then(function(res){
-        title = res.title;
-        process.send({type: 'msg', data: 'id=' + id + '对应的title=' + text});
-    }).catch(function(err){
-        process.send({type: 'msg', data: 'err=' + err});
-    });
-    process.send({type: 'msg', data: 'title=' + title});
+    for(let t in text) {
+        if (text[t]._id == id) {
+            title = text[t].text;
+            break;
+        }
+    }
     return title;
 }
 function gbk_encode(str,cb){
